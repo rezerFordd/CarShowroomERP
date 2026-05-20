@@ -20,7 +20,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Car Showroom',
       routes: routes,
-      initialRoute: '/',
+      initialRoute: "/",
     );
   }
 }

@@ -2,29 +2,39 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:car_showroom/core/session/session_manager.dart';
+import "auth_interceptor.dart";
 
 class ApiClient {
   static final ApiClient _i = ApiClient._internal();
   factory ApiClient() => _i;
 
-  final Dio dio;
-  ApiClient._internal() : dio = Dio(_base());
+  late final Dio dio;
+  late final Dio authDio;
+  ApiClient._internal() {
+    final options = _base();
+    dio = Dio(options);
+    authDio = Dio(options);
+
+    final refreshDio = Dio(options);
+    final interceptor = AuthInterceptor(SessionManager.instance, refreshDio);
+    authDio.interceptors.add(interceptor);
+
+    authDio.interceptors.add(_CurlLogger());
+  }
 
   static BaseOptions _base() {
     final baseUrl = dotenv.env['API_BASE_URL']?.trim();
-    assert (baseUrl != null && baseUrl.isNotEmpty, 'API_BASE_URL пуст');
+    assert(baseUrl != null && baseUrl.isNotEmpty, 'API_BASE_URL пуст');
     return BaseOptions(
       baseUrl: baseUrl!,
       connectTimeout: const Duration(seconds: 30),
       receiveTimeout: const Duration(seconds: 120),
-      headers: {
-      'Accept' : 'application/json, text/plain, */*'
-      },
+      headers: {'Accept': 'application/json, text/plain, */*'},
     );
   }
 }
 
-// ignore: unused_element
 class _CurlLogger extends Interceptor {
   @override
   void onRequest(RequestOptions o, RequestInterceptorHandler h) {
