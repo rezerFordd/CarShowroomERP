@@ -1,5 +1,6 @@
-import 'package:car_showroom/views/catalogue/main_catalogue.dart';
+import 'package:flutter/material.dart';
+import 'package:car_showroom/views/main_screen.dart';
 
-final routes = {
-  "/": (context) => MainCatalogue()
+final Map<String, WidgetBuilder> routes = {
+  '/': (context) => const MainScreen(),
 };

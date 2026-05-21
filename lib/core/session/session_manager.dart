@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:car_showroom/core/session/session_storage.dart';
 import 'package:car_showroom/core/session/session.dart';
 import 'dart:convert';
 
-class SessionManager {
+class SessionManager extends ChangeNotifier {
   SessionManager._();
   static final instance = SessionManager._();
 
@@ -12,6 +13,7 @@ class SessionManager {
 
   Future<void> init() async {
     _session = await _storage.load() ?? const AppSession();
+    notifyListeners();
   }
 
   bool get isLoggedIn => _session.hasUser;
@@ -24,6 +26,7 @@ class SessionManager {
   Future<void> setUserId(int id) async {
     _session = _session.copyWith(userId: id);
     await _storage.save(_session);
+    notifyListeners();
   }
 
   Future<String?> getAccessToken() async {
@@ -58,10 +61,12 @@ class SessionManager {
       refreshToken: refreshToken,
     );
     await _storage.save(_session);
+    notifyListeners();
   }
 
   Future<void> logout() async {
     _session = const AppSession();
     await _storage.clear();
+    notifyListeners();
   }
 }

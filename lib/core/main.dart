@@ -2,10 +2,12 @@ import 'package:car_showroom/core/routes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:car_showroom/core/api_client.dart';
+import 'package:car_showroom/core/session/session_manager.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: ".env");
+  await SessionManager.instance.init();
   final apiClient = ApiClient();
   runApp(MyApp(apiClient: apiClient));
 }

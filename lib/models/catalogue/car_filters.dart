@@ -57,4 +57,38 @@ class CarFilters {
     if (origin != null && origin!.isNotEmpty) params['origin'] = origin;
     return params;
   }
+
+  CarFilters copyWith({
+    String? q,
+    int? brandId,
+    int? modelId,
+    int? generationId,
+    int? cityId,
+    int? priceFrom,
+    int? priceTo,
+    int? yearFrom,
+    int? yearTo,
+    String? bodyType,
+    String? fuelType,
+    String? transmission,
+    String? driveType,
+    String? origin,
+  }) {
+    return CarFilters(
+      q: q ?? this.q,
+      brandId: brandId ?? this.brandId,
+      modelId: modelId ?? this.modelId,
+      generationId: generationId ?? this.generationId,
+      cityId: cityId ?? this.cityId,
+      priceFrom: priceFrom ?? this.priceFrom,
+      priceTo: priceTo ?? this.priceTo,
+      yearFrom: yearFrom ?? this.yearFrom,
+      yearTo: yearTo ?? this.yearTo,
+      bodyType: bodyType ?? this.bodyType,
+      fuelType: fuelType ?? this.fuelType,
+      transmission: transmission ?? this.transmission,
+      driveType: driveType ?? this.driveType,
+      origin: origin ?? this.origin,
+    );
+  }
 }
