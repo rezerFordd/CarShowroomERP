@@ -1,0 +1,71 @@
+import 'package:car_showroom/models/car/car_summary.dart';
+
+class CarDetail extends CarSummary {
+  CarDetail({
+    required super.carId,
+    super.brandId,
+    super.modelId,
+    super.generationId,
+    super.cityId,
+    super.description,
+    required super.year,
+    required super.price,
+    super.mileageKm,
+    super.vin,
+    super.licensePlate,
+    super.ownersCount,
+    super.bodyType,
+    super.engineVolume,
+    super.engineHp,
+    super.fuelType,
+    super.transmission,
+    super.driveType,
+    super.color,
+    super.seats,
+    super.status,
+    super.origin,
+    super.writeoffReason,
+    super.writeoffDate,
+    required super.isPublished,
+    required super.brandName,
+    required super.modelName,
+    super.generationName,
+    super.cityName,
+  });
+
+  factory CarDetail.fromJson(Map<String, dynamic> json) {
+    return CarDetail(
+      carId: json['car_id'] as int,
+      brandId: json['brand_id'] as int?,
+      modelId: json['model_id'] as int?,
+      generationId: json['generation_id'] as int?,
+      cityId: json['city_id'] as int?,
+      description: json['description'] as String?,
+      year: json['year'] as int,
+      price: json['price'] as int,
+      mileageKm: json['mileage_km'] as int?,
+      vin: json['vin'] as String?,
+      licensePlate: json['license_plate'] as String?,
+      ownersCount: json['owners_count'] as int?,
+      bodyType: json['body_type'] as String?,
+      engineVolume: (json['engine_volume'] as num?)?.toDouble(),
+      engineHp: json['engine_hp'] as int?,
+      fuelType: json['fuel_type'] as String?,
+      transmission: json['transmission'] as String?,
+      driveType: json['drive_type'] as String?,
+      color: json['color'] as String?,
+      seats: json['seats'] as int?,
+      status: json['status'] as String?,
+      origin: json['origin'] as String?,
+      writeoffReason: json['writeoff_reason'] as String?,
+      writeoffDate: json['writeoff_date'] != null
+          ? DateTime.parse(json['writeoff_date'])
+          : null,
+      isPublished: json['is_published'] as bool,
+      brandName: json['brand_name'] as String,
+      modelName: json['model_name'] as String,
+      generationName: json['generation_name'] as String?,
+      cityName: json['city_name'] as String?,
+    );
+  }
+}
