@@ -10,6 +10,7 @@ class Order {
   final int termMonths;
   final double interestRate;
   final double monthlyPayment;
+  final int? managerId;
 
   Order({
     required this.orderId,
@@ -23,6 +24,7 @@ class Order {
     required this.termMonths,
     required this.interestRate,
     required this.monthlyPayment,
+    this.managerId,
   });
 
   factory Order.fromJson(Map<String, dynamic> json) {
@@ -38,6 +40,7 @@ class Order {
       termMonths: json['term_months'] as int,
       interestRate: (json['interest_rate'] as num).toDouble(),
       monthlyPayment: (json['monthly_payment'] as num).toDouble(),
+      managerId: json['manager_id'] as int?,
     );
   }
 }

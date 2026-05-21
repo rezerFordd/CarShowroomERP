@@ -34,4 +34,35 @@ class OrdersService {
     }
     return Exception(message);
   }
+
+  Future<List<Order>> getMyOrders() async {
+    try {
+      final response = await _apiClient.authDio.get('/api/v1/user/orders');
+      if (response.statusCode == 200) {
+        final List data = response.data;
+        return data.map((json) => Order.fromJson(json)).toList();
+      } else {
+        throw Exception('Ошибка получения Ваших заказов');
+      }
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<void> deleteOrder(int orderId) async {
+    try {
+      final response = await _apiClient.authDio.delete(
+        '/api/v1/user/orders/$orderId',
+      );
+      if (response.statusCode != 200) {
+        throw DioException(
+          requestOptions: response.requestOptions,
+          response: response,
+          type: DioExceptionType.badResponse,
+        );
+      }
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
 }

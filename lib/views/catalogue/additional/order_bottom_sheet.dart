@@ -169,6 +169,8 @@ class _OrderBottomSheetState extends State<OrderBottomSheet> {
       }
     }
 
+    final int monthlyPaymentInt = monthlyPayment.round();
+
     final request = CreateOrderRequest(
       carId: widget.car.carId,
       service: _selectedService,
@@ -176,7 +178,7 @@ class _OrderBottomSheetState extends State<OrderBottomSheet> {
       downPaymentAmount: downPayment,
       termMonths: termMonths,
       interestRate: interestRate,
-      monthlyPayment: monthlyPayment,
+      monthlyPayment: monthlyPaymentInt,
       preorderId: null,
     );
 

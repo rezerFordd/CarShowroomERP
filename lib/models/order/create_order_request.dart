@@ -5,7 +5,7 @@ class CreateOrderRequest {
   final int downPaymentAmount;
   final int termMonths;
   final double interestRate;
-  final double monthlyPayment;
+  final int monthlyPayment;
   final int? preorderId;
 
   CreateOrderRequest({

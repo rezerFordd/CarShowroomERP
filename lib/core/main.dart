@@ -1,6 +1,8 @@
 import 'package:car_showroom/core/routes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:provider/provider.dart';
+import 'package:car_showroom/providers/favorites_provider.dart';
 import 'package:car_showroom/core/api_client.dart';
 import 'package:car_showroom/core/session/session_manager.dart';
 
@@ -19,10 +21,13 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     debugPrint('API_BASE_URL = ${dotenv.env['API_BASE_URL']}');
-    return MaterialApp(
-      title: 'Car Showroom',
-      routes: routes,
-      initialRoute: "/",
+    return ChangeNotifierProvider(
+      create: (_) => FavoritesProvider(),
+      child: MaterialApp(
+        title: 'Car Showroom',
+        routes: routes,
+        initialRoute: "/",
+      ),
     );
   }
 }

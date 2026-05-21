@@ -3,12 +3,11 @@ import 'package:car_showroom/core/api_client.dart';
 import 'package:car_showroom/models/car/car_summary.dart';
 import 'package:car_showroom/models/car/car_detail.dart';
 import 'package:car_showroom/models/catalogue/car_filters.dart';
-import 'package:car_showroom/models/catalogue/paginated_response.dart';
 
 class CarService {
   final ApiClient _apiClient = ApiClient();
 
-  Future<PaginatedResponse<CarSummary>> getCars({
+  Future<List<CarSummary>> getCars({
     required int page,
     int pageSize = 20,
     CarFilters? filters,
@@ -27,10 +26,17 @@ class CarService {
         queryParameters: queryParams,
       );
       if (response.statusCode == 200) {
-        return PaginatedResponse<CarSummary>.fromJson(
-          response.data,
-          (json) => CarSummary.fromJson(json as Map<String, dynamic>),
-        );
+        if (response.data is List) {
+          final List data = response.data;
+          return data.map((json) => CarSummary.fromJson(json)).toList();
+        } else if (response.data is Map<String, dynamic>) {
+          final Map<String, dynamic> map = response.data;
+          if (map.containsKey('items')) {
+            final items = map['items'] as List;
+            return items.map((json) => CarSummary.fromJson(json)).toList();
+          }
+        }
+        return [];
       } else {
         throw DioException(
           requestOptions: response.requestOptions,

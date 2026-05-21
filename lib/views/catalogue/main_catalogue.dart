@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:car_showroom/models/car/car_summary.dart';
 import 'package:car_showroom/models/catalogue/car_filters.dart';
 import 'package:car_showroom/services/car/car_service.dart';
-import 'package:car_showroom/services/favorites/favorites_service.dart';
 import 'package:car_showroom/views/catalogue/additional/car_card.dart';
 import 'package:car_showroom/views/catalogue/additional/filters_bottom_sheet.dart';
 import 'package:car_showroom/views/catalogue/additional/car_detail_bottom_sheet.dart';
+import 'package:car_showroom/providers/favorites_provider.dart';
+import 'package:car_showroom/core/session/session_manager.dart';
 
 class CatalogScreen extends StatefulWidget {
   const CatalogScreen({super.key});
@@ -16,7 +18,6 @@ class CatalogScreen extends StatefulWidget {
 
 class _CatalogScreenState extends State<CatalogScreen> {
   final CarService _carService = CarService();
-  final FavoritesService _favoritesService = FavoritesService();
 
   List<CarSummary> _cars = [];
   bool _isLoading = false;
@@ -25,40 +26,33 @@ class _CatalogScreenState extends State<CatalogScreen> {
   static const int _pageSize = 20;
 
   final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   CarFilters? _currentFilters;
-
-  // Множество ID избранных автомобилей (для отображения сердечек)
-  Set<int> _favoriteIds = {};
 
   @override
   void initState() {
     super.initState();
+    // Загружаем избранное при старте, если пользователь авторизован
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (SessionManager.instance.isLoggedIn) {
+        context.read<FavoritesProvider>().loadFavorites();
+      }
+    });
     _loadInitialData();
     _scrollController.addListener(_onScroll);
+    _searchController.addListener(() {});
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
   Future<void> _loadInitialData() async {
-    await _loadFavorites(); // сначала загружаем избранное
     await _loadCars(reset: true);
-  }
-
-  Future<void> _loadFavorites() async {
-    try {
-      final favorites = await _favoritesService.getFavorites();
-      setState(() {
-        _favoriteIds = favorites.map((car) => car.carId).toSet();
-      });
-    } catch (e) {
-      // Не показываем ошибку, просто оставляем пустое избранное
-      debugPrint('Ошибка загрузки избранного: $e');
-    }
   }
 
   Future<void> _loadCars({bool reset = false}) async {
@@ -70,33 +64,48 @@ class _CatalogScreenState extends State<CatalogScreen> {
     }
     if (!_hasMore && !reset) return;
 
-    setState(() {
-      _isLoading = true;
-    });
+    if (mounted) setState(() => _isLoading = true);
 
     try {
-      final filters = _currentFilters?.copyWith(
-        q: _searchQuery.isNotEmpty ? _searchQuery : null,
-      );
-      final response = await _carService.getCars(
+      // Создаём фильтры с q, даже если _currentFilters == null
+      final filters = _currentFilters != null
+          ? CarFilters(
+              q: _searchQuery.isNotEmpty ? _searchQuery : null,
+              brandId: _currentFilters!.brandId,
+              modelId: _currentFilters!.modelId,
+              generationId: _currentFilters!.generationId,
+              cityId: _currentFilters!.cityId,
+              priceFrom: _currentFilters!.priceFrom,
+              priceTo: _currentFilters!.priceTo,
+              yearFrom: _currentFilters!.yearFrom,
+              yearTo: _currentFilters!.yearTo,
+              bodyType: _currentFilters!.bodyType,
+              fuelType: _currentFilters!.fuelType,
+              transmission: _currentFilters!.transmission,
+              driveType: _currentFilters!.driveType,
+              origin: _currentFilters!.origin,
+            )
+          : CarFilters(q: _searchQuery.isNotEmpty ? _searchQuery : null);
+
+      final cars = await _carService.getCars(
         page: _currentPage,
         pageSize: _pageSize,
         filters: filters,
       );
-      setState(() {
-        if (reset) {
-          _cars = response.items;
-        } else {
-          _cars.addAll(response.items);
-        }
-        _hasMore = response.items.length == _pageSize;
-        _currentPage++;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          if (reset) {
+            _cars = cars;
+          } else {
+            _cars.addAll(cars);
+          }
+          _hasMore = cars.length == _pageSize;
+          _currentPage++;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) setState(() => _isLoading = false);
       _showErrorSnackBar('Ошибка загрузки машин: ${e.toString()}');
     }
   }
@@ -111,10 +120,15 @@ class _CatalogScreenState extends State<CatalogScreen> {
   }
 
   void _applySearchAndFilters({String? query, CarFilters? filters}) {
+    debugPrint('🔍 apply: query=$query, filters=$filters');
     setState(() {
-      _searchQuery = query ?? _searchQuery;
+      if (query != null) {
+        _searchQuery = query;
+        _searchController.value = TextEditingValue(text: query);
+      }
       _currentFilters = filters;
     });
+    debugPrint('🔍 after setState: _searchQuery="$_searchQuery"');
     _loadCars(reset: true);
   }
 
@@ -132,27 +146,30 @@ class _CatalogScreenState extends State<CatalogScreen> {
     }
   }
 
-  void _toggleFavorite(CarSummary car) async {
-    final isFavorite = _favoriteIds.contains(car.carId);
-    try {
-      if (isFavorite) {
-        await _favoritesService.removeFavorite(car.carId);
-      } else {
-        await _favoritesService.addFavorite(car.carId);
-      }
-      setState(() {
-        if (isFavorite) {
-          _favoriteIds.remove(car.carId);
-        } else {
-          _favoriteIds.add(car.carId);
-        }
-      });
-    } catch (e) {
+  /// Используем провайдер для добавления/удаления избранного
+  Future<void> _toggleFavorite(CarSummary car) async {
+    final provider = context.read<FavoritesProvider>();
+    final isFavorite = provider.isFavorite(car.carId);
+    bool success;
+    if (isFavorite) {
+      success = await provider.removeFavorite(car.carId);
+    } else {
+      success = await provider.addFavorite(car.carId);
+    }
+    if (!success && mounted) {
       _showErrorSnackBar('Ошибка изменения избранного');
     }
+    // Состояние обновится автоматически через провайдер, не нужно вызывать setState
+  }
+
+  void _onSearchPressed() {
+    debugPrint('🔍 _onSearchPressed called, query="${_searchController.text}"');
+    final query = _searchController.text;
+    _applySearchAndFilters(query: query);
   }
 
   void _openCarDetail(CarSummary car) {
+    final provider = context.read<FavoritesProvider>();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -161,16 +178,13 @@ class _CatalogScreenState extends State<CatalogScreen> {
       ),
       builder: (context) => CarDetailBottomSheet(
         carId: car.carId,
-        isFavorite: _favoriteIds.contains(car.carId),
+        isFavorite: provider.isFavorite(car.carId),
         onFavoriteChanged: (isNowFavorite) {
-          // Обновляем состояние в списке при изменении избранного из модалки
-          setState(() {
-            if (isNowFavorite) {
-              _favoriteIds.add(car.carId);
-            } else {
-              _favoriteIds.remove(car.carId);
-            }
-          });
+          // Провайдер уже обновит глобальное состояние, можно ничего не делать
+          // Но принудительно обновим экран каталога через setState, если нужно
+          if (mounted) {
+            setState(() {}); // Перерисовка, чтобы обновить иконку в карточке
+          }
         },
       ),
     );
@@ -188,6 +202,9 @@ class _CatalogScreenState extends State<CatalogScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Подписываемся на провайдер, чтобы при изменении избранного перерисовывать карточки
+    final favoritesProvider = context.watch<FavoritesProvider>();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Car Showroom'),
@@ -208,6 +225,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
               children: [
                 Expanded(
                   child: TextField(
+                    controller: _searchController,
                     decoration: InputDecoration(
                       hintText: 'Поиск по марке, модели, описанию',
                       prefixIcon: const Icon(Icons.search),
@@ -227,7 +245,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
                 const SizedBox(width: 8),
                 ElevatedButton(
                   onPressed: () {
-                    _applySearchAndFilters(query: _searchQuery);
+                    _onSearchPressed();
                   },
                   style: ElevatedButton.styleFrom(
                     shape: RoundedRectangleBorder(
@@ -278,7 +296,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
                         final car = _cars[index];
                         return CarCard(
                           car: car,
-                          isFavorite: _favoriteIds.contains(car.carId),
+                          isFavorite: favoritesProvider.isFavorite(car.carId),
                           onFavoriteToggle: () => _toggleFavorite(car),
                           onTap: () => _openCarDetail(car),
                         );

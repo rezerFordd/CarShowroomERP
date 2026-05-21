@@ -23,14 +23,12 @@ class FavoritesService {
     }
   }
 
-  Future<String> addFavorite(int carId) async {
+  Future<void> addFavorite(int carId) async {
     try {
       final response = await _apiClient.authDio.post(
         '/api/v1/user/favorites/$carId',
       );
-      if (response.statusCode == 201) {
-        return response.data as String;
-      } else {
+      if (response.statusCode != 201) {
         throw DioException(
           requestOptions: response.requestOptions,
           response: response,
@@ -42,14 +40,12 @@ class FavoritesService {
     }
   }
 
-  Future<String> removeFavorite(int carId) async {
+  Future<void> removeFavorite(int carId) async {
     try {
       final response = await _apiClient.authDio.delete(
         '/api/v1/user/favorites/$carId',
       );
-      if (response.statusCode == 200) {
-        return response.data as String;
-      } else {
+      if (response.statusCode != 200) {
         throw DioException(
           requestOptions: response.requestOptions,
           response: response,

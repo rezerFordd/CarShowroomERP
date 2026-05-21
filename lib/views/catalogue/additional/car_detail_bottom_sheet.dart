@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:car_showroom/models/car/car_detail.dart';
 import 'package:car_showroom/services/car/car_service.dart';
-import 'package:car_showroom/services/favorites/favorites_service.dart';
+import 'package:car_showroom/providers/favorites_provider.dart';
 import 'package:car_showroom/views/catalogue/additional/order_bottom_sheet.dart';
 
 class CarDetailBottomSheet extends StatefulWidget {
   final int carId;
   final bool isFavorite;
-  final Function(bool) onFavoriteChanged;
+  final Function(bool)
+  onFavoriteChanged; // можно оставить для обратного вызова, но не обязательно
 
   const CarDetailBottomSheet({
     super.key,
@@ -22,10 +24,7 @@ class CarDetailBottomSheet extends StatefulWidget {
 
 class _CarDetailBottomSheetState extends State<CarDetailBottomSheet> {
   final CarService _carService = CarService();
-  final FavoritesService _favoritesService = FavoritesService();
-
   late Future<CarDetail> _carDetailFuture;
-  late bool _isFavorite;
 
   // Простой кеш для деталей (на время сессии)
   static final Map<int, CarDetail> _cache = {};
@@ -33,7 +32,6 @@ class _CarDetailBottomSheetState extends State<CarDetailBottomSheet> {
   @override
   void initState() {
     super.initState();
-    _isFavorite = widget.isFavorite;
     _carDetailFuture = _loadCarDetail();
   }
 
@@ -47,17 +45,28 @@ class _CarDetailBottomSheetState extends State<CarDetailBottomSheet> {
   }
 
   Future<void> _toggleFavorite() async {
-    try {
-      if (_isFavorite) {
-        await _favoritesService.removeFavorite(widget.carId);
-      } else {
-        await _favoritesService.addFavorite(widget.carId);
+    final provider = context.read<FavoritesProvider>();
+    final isFav = provider.isFavorite(widget.carId);
+    bool success;
+    if (isFav) {
+      success = await provider.removeFavorite(widget.carId);
+    } else {
+      success = await provider.addFavorite(widget.carId);
+    }
+    if (success) {
+      widget.onFavoriteChanged(!isFav);
+      // Можно показать тост
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isFav ? 'Удалено из избранного' : 'Добавлено в избранное',
+            ),
+            duration: const Duration(seconds: 1),
+          ),
+        );
       }
-      setState(() {
-        _isFavorite = !_isFavorite;
-      });
-      widget.onFavoriteChanged(_isFavorite);
-    } catch (e) {
+    } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Ошибка изменения избранного'),
@@ -75,13 +84,14 @@ class _CarDetailBottomSheetState extends State<CarDetailBottomSheet> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) => OrderBottomSheet(car: car),
-    ).then((_) {
-      // После закрытия формы заказа ничего не делаем
-    });
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<FavoritesProvider>();
+    final isFavorite = provider.isFavorite(widget.carId);
+
     return DraggableScrollableSheet(
       initialChildSize: 0.9,
       minChildSize: 0.5,
@@ -116,7 +126,6 @@ class _CarDetailBottomSheetState extends State<CarDetailBottomSheet> {
             final car = snapshot.data!;
             return Column(
               children: [
-                // Заголовок с кнопками
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Row(
@@ -133,8 +142,8 @@ class _CarDetailBottomSheetState extends State<CarDetailBottomSheet> {
                       ),
                       IconButton(
                         icon: Icon(
-                          _isFavorite ? Icons.favorite : Icons.favorite_border,
-                          color: _isFavorite ? Colors.red : Colors.grey,
+                          isFavorite ? Icons.favorite : Icons.favorite_border,
+                          color: isFavorite ? Colors.red : Colors.grey,
                           size: 32,
                         ),
                         onPressed: _toggleFavorite,

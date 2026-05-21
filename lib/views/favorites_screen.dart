@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:car_showroom/services/favorites/favorites_service.dart';
+import 'package:provider/provider.dart';
+import 'package:car_showroom/providers/favorites_provider.dart';
 import 'package:car_showroom/views/catalogue/additional/car_card.dart';
+import 'package:car_showroom/core/session/session_manager.dart';
 import 'package:car_showroom/models/car/car_summary.dart';
+import 'package:car_showroom/views/catalogue/additional/car_detail_bottom_sheet.dart';
 
 class FavoritesScreen extends StatefulWidget {
   const FavoritesScreen({super.key});
@@ -11,81 +14,79 @@ class FavoritesScreen extends StatefulWidget {
 }
 
 class _FavoritesScreenState extends State<FavoritesScreen> {
-  final FavoritesService _favoritesService = FavoritesService();
-  List<CarSummary> _favorites = [];
-  bool _isLoading = true;
-
   @override
   void initState() {
     super.initState();
-    _loadFavorites();
-  }
-
-  Future<void> _loadFavorites() async {
-    setState(() => _isLoading = true);
-    try {
-      final favorites = await _favoritesService.getFavorites();
-      if (mounted) {
-        setState(() {
-          _favorites = favorites;
-          _isLoading = false;
-        });
+    // Загружаем избранное при входе на экран, если пользователь авторизован
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (SessionManager.instance.isLoggedIn) {
+        context.read<FavoritesProvider>().loadFavorites();
       }
-    } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
-      _showError('Ошибка загрузки избранного');
-    }
+    });
   }
 
-  Future<void> _removeFromFavorites(int carId) async {
-    try {
-      await _favoritesService.removeFavorite(carId);
-      setState(() {
-        _favorites.removeWhere((car) => car.carId == carId);
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Удалено из избранного'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      _showError('Не удалось удалить');
-    }
-  }
-
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
-    );
+  Future<void> _refresh() async {
+    await context.read<FavoritesProvider>().loadFavorites();
   }
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<FavoritesProvider>();
+
     return Scaffold(
       appBar: AppBar(title: const Text('Избранное')),
-      body: _isLoading
+      body: provider.isLoading && provider.favoriteCars.isEmpty
           ? const Center(child: CircularProgressIndicator())
-          : _favorites.isEmpty
-          ? const Center(child: Text('У вас пока нет избранных автомобилей'))
+          : provider.favoriteCars.isEmpty
+          ? const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.favorite_border, size: 80, color: Colors.grey),
+                  SizedBox(height: 16),
+                  Text('У вас пока нет избранных автомобилей'),
+                ],
+              ),
+            )
           : RefreshIndicator(
-              onRefresh: _loadFavorites,
+              onRefresh: _refresh,
               child: ListView.builder(
-                itemCount: _favorites.length,
+                itemCount: provider.favoriteCars.length,
                 itemBuilder: (context, index) {
-                  final car = _favorites[index];
+                  final car = provider.favoriteCars[index];
                   return CarCard(
                     car: car,
-                    isFavorite: true,
-                    onFavoriteToggle: () => _removeFromFavorites(car.carId),
+                    isFavorite: true, // на этом экране всегда true
+                    onFavoriteToggle: () async {
+                      // Удаляем из избранного
+                      await provider.removeFavorite(car.carId);
+                    },
                     onTap: () {
-                      // Открыть детальную модалку, передав carId
-                      // Пока пропустим (можно сделать позже)
+                      // Открыть детальную модалку (аналогично каталогу)
+                      _openCarDetail(car);
                     },
                   );
                 },
               ),
             ),
+    );
+  }
+
+  void _openCarDetail(CarSummary car) {
+    final provider = context.read<FavoritesProvider>();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => CarDetailBottomSheet(
+        carId: car.carId,
+        isFavorite: provider.isFavorite(car.carId),
+        onFavoriteChanged: (_) {
+          // Провайдер обновит глобальное состояние, можно не делать ничего
+        },
+      ),
     );
   }
 }
